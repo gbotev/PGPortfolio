@@ -44,7 +44,10 @@ def build_parser():
 
 def main():
     parser = build_parser()
-    options = parser.parse_args()
+    options = parser.parse_args()    
+    #For logging issues:
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
     if not os.path.exists("./" + "train_package"):
         os.makedirs("./" + "train_package")
     if not os.path.exists("./" + "database"):
@@ -63,6 +66,7 @@ def main():
         generate.add_packages(load_config(), int(options.repeat))
     elif options.mode == "download_data":
         from pgportfolio.marketdata.datamatrices import DataMatrices
+        logging.basicConfig(filename='download_data.log',level=logging.DEBUG)
         with open("./pgportfolio/net_config.json") as file:
             config = json.load(file)
         config = preprocess_config(config)

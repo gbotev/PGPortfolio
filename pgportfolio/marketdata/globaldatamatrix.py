@@ -15,11 +15,23 @@ import logging
 class HistoryManager:
     # if offline ,the coin_list could be None
     # NOTE: return of the sqlite results is a list of tuples, each tuple is a row
+    """
+    Here the db is initialized and filled and the coins for analysis are selected.
+    Params:
+    coin_number: Number of coins to be included
+    end: final period as unix timestamp
+    volume_average_days: number of days to consider for getting the top volumed coins
+    volume_forward: part of the data to be used as test set as time in seconds. This is used to exclude
+        the information about volumes from the test set.
+    online: If the data should be downloaded or the local db would be used
+    
+    """
     def __init__(self, coin_number, end, volume_average_days=1, volume_forward=0, online=True):
         self.initialize_db()
         self.__storage_period = FIVE_MINUTES  # keep this as 300
         self._coin_number = coin_number
         self._online = online
+        #CoinList is used for coin pre-selection
         if self._online:
             self._coin_list = CoinList(end, volume_average_days, volume_forward)
         self.__volume_forward = volume_forward
@@ -46,6 +58,84 @@ class HistoryManager:
         """
         return self.get_global_panel(start, end, period, features).values
 
+    def get_global_df(self, start, end, period=300, features=('close',)):
+        #TODO: Convert to from pnel to df
+        """
+        Updated as pd.panel is deprecated
+        :param start/end: linux timestamp in seconds
+        :param period: time interval of each data access point
+        :param features: tuple or list of the feature names
+        :return a pd.DataFrame, [feature, coin, time]
+        """
+        start = int(start - (start%period))
+        end = int(end - (end%period))
+        coins = self.select_coins(start=end - self.__volume_forward - self.__volume_average_days * DAY,
+                                  end=end-self.__volume_forward)
+        self.__coins = coins
+        for coin in coins:
+            self.update_data(start, end, coin)
+
+        if len(coins)!=self._coin_number:
+            raise ValueError("the length of selected coins %d is not equal to expected %d"
+                             % (len(coins), self._coin_number))
+
+        logging.info("feature type list is %s" % str(features))
+        self.__checkperiod(period)
+
+        time_index = pd.to_datetime(list(range(start, end+1, period)),unit='s')
+        panel = pd.Panel(items=features, major_axis=coins, minor_axis=time_index, dtype=np.float32)
+
+        connection = sqlite3.connect(DATABASE_DIR)
+        try:
+            for row_number, coin in enumerate(coins):
+                for feature in features:
+                    # NOTE: transform the start date to end date
+                    if feature == "close":
+                        sql = ("SELECT date+300 AS date_norm, close FROM History WHERE"
+                               " date_norm>={start} and date_norm<={end}" 
+                               " and date_norm%{period}=0 and coin=\"{coin}\"".format(
+                               start=start, end=end, period=period, coin=coin))
+                    elif feature == "open":
+                        sql = ("SELECT date+{period} AS date_norm, open FROM History WHERE"
+                               " date_norm>={start} and date_norm<={end}" 
+                               " and date_norm%{period}=0 and coin=\"{coin}\"".format(
+                               start=start, end=end, period=period, coin=coin))
+                    elif feature == "volume":
+                        sql = ("SELECT date_norm, SUM(volume)"+
+                               " FROM (SELECT date+{period}-(date%{period}) "
+                               "AS date_norm, volume, coin FROM History)"
+                               " WHERE date_norm>={start} and date_norm<={end} and coin=\"{coin}\""
+                               " GROUP BY date_norm".format(
+                                    period=period,start=start,end=end,coin=coin))
+                    elif feature == "high":
+                        sql = ("SELECT date_norm, MAX(high)" +
+                               " FROM (SELECT date+{period}-(date%{period})"
+                               " AS date_norm, high, coin FROM History)"
+                               " WHERE date_norm>={start} and date_norm<={end} and coin=\"{coin}\""
+                               " GROUP BY date_norm".format(
+                                    period=period,start=start,end=end,coin=coin))
+                    elif feature == "low":
+                        sql = ("SELECT date_norm, MIN(low)" +
+                                " FROM (SELECT date+{period}-(date%{period})"
+                                " AS date_norm, low, coin FROM History)"
+                                " WHERE date_norm>={start} and date_norm<={end} and coin=\"{coin}\""
+                                " GROUP BY date_norm".format(
+                                    period=period,start=start,end=end,coin=coin))
+                    else:
+                        msg = ("The feature %s is not supported" % feature)
+                        logging.error(msg)
+                        raise ValueError(msg)
+                    serial_data = pd.read_sql_query(sql, con=connection,
+                                                    parse_dates=["date_norm"],
+                                                    index_col="date_norm")
+                    panel.loc[feature, coin, serial_data.index] = serial_data.squeeze()
+                    panel = panel_fillna(panel, "both")
+        finally:
+            connection.commit()
+            connection.close()
+        return panel    
+    
+    
     def get_global_panel(self, start, end, period=300, features=('close',)):
         """
         :param start/end: linux timestamp in seconds
@@ -162,7 +252,7 @@ class HistoryManager:
         elif period == DAY:
             return
         else:
-            raise ValueError('peroid has to be 5min, 15min, 30min, 2hr, 4hr, or a day')
+            raise ValueError('period has to be 5min, 15min, 30min, 2hr, 4hr, or a day')
 
     # add new history data into the database
     def update_data(self, start, end, coin):

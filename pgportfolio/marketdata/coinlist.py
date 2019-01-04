@@ -8,6 +8,8 @@ from datetime import datetime
 import logging
 from pgportfolio.constants import *
 
+BASIC_CURRENCY = "USDT"
+
 
 class CoinList(object):
     def __init__(self, end, volume_average_days=1, volume_forward=0):
@@ -26,11 +28,11 @@ class CoinList(object):
                                                            datetime.fromtimestamp(end-volume_forward).
                                                            strftime('%Y-%m-%d %H:%M')))
         for k, v in vol.items():
-            if k.startswith("BTC_") or k.endswith("_BTC"):
+            if k.startswith(BASIC_CURRENCY + "_") or k.endswith("_" + BASIC_CURRENCY):
                 pairs.append(k)
                 for c, val in v.items():
-                    if c != 'BTC':
-                        if k.endswith('_BTC'):
+                    if c != BASIC_CURRENCY:
+                        if k.endswith("_" + BASIC_CURRENCY):
                             coins.append('reversed_' + c)
                             prices.append(1.0 / float(ticker[k]['last']))
                         else:
@@ -65,7 +67,7 @@ class CoinList(object):
         chart = self.get_chart_until_success(pair=pair, period=DAY, start=start, end=end)
         result = 0
         for one_day in chart:
-            if pair.startswith("BTC_"):
+            if pair.startswith(BASIC_CURRENCY + "_"):
                 result += one_day['volume']
             else:
                 result += one_day["quoteVolume"]

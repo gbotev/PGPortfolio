@@ -21,11 +21,11 @@
     "coin_number":11,
     "global_period":1800,
     "feature_number":3,
-    "test_portion":0.08,
+    "test_portion":0.2,
     "online":true,
-    "start_date":"2017/08/01",
-    "end_date":"2018/12/31",
-    "volume_average_days":90
+    "start_date":"2018/12/31",
+    "end_date":"2019/01/14",
+    "volume_average_days":5
   },
 
   "trading":{
@@ -35,4 +35,3 @@
     "buffer_biased":5e-5
   }
 }
-

@@ -8,7 +8,11 @@ from datetime import datetime
 import logging
 from pgportfolio.constants import *
 
-BASIC_CURRENCY = "USDT"
+
+#Can't add as parameter, because database is organized from creation to have a BASE CURRENCy
+#And new data is only added to the existing data, without overwriting
+#Call to the database with USDT as BASE and then BTC as based leads to data issues!
+#BASE_CURRENCY = "USDT"
 
 
 class CoinList(object):
@@ -28,11 +32,11 @@ class CoinList(object):
                                                            datetime.fromtimestamp(end-volume_forward).
                                                            strftime('%Y-%m-%d %H:%M')))
         for k, v in vol.items():
-            if k.startswith(BASIC_CURRENCY + "_") or k.endswith("_" + BASIC_CURRENCY):
+            if k.startswith(BASE_CURRENCY + "_") or k.endswith("_" + BASE_CURRENCY):
                 pairs.append(k)
                 for c, val in v.items():
-                    if c != BASIC_CURRENCY:
-                        if k.endswith("_" + BASIC_CURRENCY):
+                    if c != BASE_CURRENCY:
+                        if k.endswith("_" + BASE_CURRENCY):
                             coins.append('reversed_' + c)
                             prices.append(1.0 / float(ticker[k]['last']))
                         else:
@@ -67,7 +71,7 @@ class CoinList(object):
         chart = self.get_chart_until_success(pair=pair, period=DAY, start=start, end=end)
         result = 0
         for one_day in chart:
-            if pair.startswith(BASIC_CURRENCY + "_"):
+            if pair.startswith(BASE_CURRENCY + "_"):
                 result += one_day['volume']
             else:
                 result += one_day["quoteVolume"]

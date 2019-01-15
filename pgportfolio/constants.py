@@ -2,11 +2,14 @@
 # -*- coding: utf-8 -*-
 from os import path
 
+#[BTC, USDT, ETH]
+BASE_CURRENCY = "USDT"
+
 DATABASE_DIR = path.realpath(__file__).\
-    replace('pgportfolio/constants.pyc','/database/Data.db').\
-    replace("pgportfolio\\constants.pyc","database\\Data.db").\
-    replace('pgportfolio/constants.py','/database/Data.db').\
-    replace("pgportfolio\\constants.py","database\\Data.db")
+    replace('pgportfolio/constants.pyc','/database/Data_' + BASE_CURRENCY + '.db').\
+    replace("pgportfolio\\constants.pyc","database\\Data_" + BASE_CURRENCY + ".db").\
+    replace('pgportfolio/constants.py','/database/Data_' + BASE_CURRENCY + '.db').\
+    replace("pgportfolio\\constants.py","database\\Data_" + BASE_CURRENCY + ".db")
 CONFIG_FILE_DIR = 'net_config.json'
 LAMBDA = 1e-4  # lambda in loss function 5 in training
    # About time
